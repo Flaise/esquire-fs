@@ -98,7 +98,8 @@ printStatus()
 
 let keyLeft = Reactant false
 let keyShift = Reactant false
-let onAttackWest = keyLeft.On(true).When keyShift
+let alive = Reactant true
+let onAttackWest = keyLeft.On(true).When(keyShift &&& alive)
 
 keyLeft.Listen(fun(prev, curr) -> if curr then Console.WriteLine "Pressed left arrow key" else Console.WriteLine "Released left arrow key")
 keyShift.Listen(fun(prev, curr) -> if curr then Console.WriteLine "Pressed shift" else Console.WriteLine "Released shift")
