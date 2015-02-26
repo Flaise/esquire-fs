@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Esquire", "Esquire.fsproj", "{22DD36D8-9727-4E9B-9066-6DBA4118E67E}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Test", "..\Test\Test.fsproj", "{49CD6D24-5187-4DCD-862B-35ABCE79F423}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{22DD36D8-9727-4E9B-9066-6DBA4118E67E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{22DD36D8-9727-4E9B-9066-6DBA4118E67E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{22DD36D8-9727-4E9B-9066-6DBA4118E67E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49CD6D24-5187-4DCD-862B-35ABCE79F423}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49CD6D24-5187-4DCD-862B-35ABCE79F423}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49CD6D24-5187-4DCD-862B-35ABCE79F423}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49CD6D24-5187-4DCD-862B-35ABCE79F423}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -5,14 +5,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>22dd36d8-9727-4e9b-9066-6dba4118e67e</ProjectGuid>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>Esquire</RootNamespace>
-    <AssemblyName>Esquire</AssemblyName>
+    <ProjectGuid>49cd6d24-5187-4dcd-862b-35abce79f423</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Test</RootNamespace>
+    <AssemblyName>Test</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>Esquire</Name>
+    <Name>Test</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,8 +23,12 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Debug\Esquire.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\Test.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
+    <StartAction>Program</StartAction>
+    <StartProgram>E:\Programs\NUnit 2.6.4\bin\nunit.exe</StartProgram>
+    <StartArguments>Test.dll</StartArguments>
+    <StartWorkingDirectory>E:\Repositories\esquire-fs\Test\bin\Debug\</StartWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -34,7 +38,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Release\Esquire.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\Test.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
@@ -42,16 +46,29 @@
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
     </Reference>
+    <Reference Include="nunit.framework">
+      <HintPath>..\Esquire\packages\NUnit.2.6.4\lib\nunit.framework.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="Unquote">
+      <HintPath>..\Esquire\packages\Unquote.2.2.2\lib\net40\Unquote.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
-    <Compile Include="EventDispatcher.fs" />
-    <Compile Include="Reactant.fs" />
-    <Compile Include="EventDispatcherExt.fs" />
     <Compile Include="Program.fs" />
+    <None Include="App.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Esquire\Esquire.fsproj">
+      <Name>Esquire</Name>
+      <Project>{22dd36d8-9727-4e9b-9066-6dba4118e67e}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
