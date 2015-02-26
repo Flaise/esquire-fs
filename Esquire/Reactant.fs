@@ -28,13 +28,13 @@ type Reactant<'a when 'a:equality>(initialFunc:unit->'a) =
             this.Derive <| fun () -> value
 
     member this.On (value:'a) =
-        let result = new EventDispatcher<unit>()
-        this.Listen <| fun (prev, curr) -> if curr = value then result.Trigger ()
+        let result = EventDispatcher<unit> ()
+        (this.Listen <| fun (prev, curr) -> if curr = value then result.Trigger ()) |> ignore
         result
 
     member this.Compose (other:Reactant<'a>) (transformation:'a->'a->'a) =
-        let result = new Reactant<'a>(fun () -> transformation this.Value other.Value)
-        (this +++ other).Listen(fun(prev, curr) -> result.Updated())
+        let result = Reactant<'a> (fun () -> transformation this.Value other.Value)
+        (this +++ other).Listen(fun(prev, curr) -> result.Updated()) |> ignore
         result
         
     static member (+) (r:Reactant<int>, s:Reactant<int>) =
