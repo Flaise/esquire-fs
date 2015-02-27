@@ -4,6 +4,23 @@ open NUnit.Framework
 open Swensen.Unquote
 open Esquire
 
+
+type MockFunction<'a when 'a:equality> (argLists:array<'a>) =
+    let mutable calls = 0
+
+    member this.ExpectCalls count =
+        count <? argLists.Length
+        calls =? count
+
+    member this.ExpectFinished () =
+        calls =? argLists.Length
+
+    member this.Call args =
+        calls <? argLists.Length
+        args =? argLists.[calls]
+        calls <- calls + 1
+
+
 module TestReactant =
     [<Test>]
     let ``constructed with value`` () =
@@ -30,15 +47,10 @@ module TestReactant =
     [<Test>]
     let ``register and trigger callback`` () =
         let reactant = Reactant 7
-        let called = ref false
-        (reactant.Listen <| fun (prev, curr) ->
-            !called =? false
-            prev =? 7
-            curr =? 9
-            called := true
-        ) |> ignore
+        let mockFunc = MockFunction [| (7, 9) |]
+        reactant.Listen mockFunc.Call |> ignore
         reactant.Value <- 9
-        !called =? true
+        mockFunc.ExpectFinished ()
 
     [<Test>]
     let ``unregister callback`` () =
@@ -50,162 +62,113 @@ module TestReactant =
     [<Test>]
     let ``on(value) filtering`` () =
         let reactant = Reactant 1
-        let called = ref false
-        (reactant.On(5).Listen <| fun () ->
-            !called =? false
-            called := true
-        ) |> ignore
+        let mockFunc = MockFunction [| () |]
+        reactant.On(5).Listen mockFunc.Call |> ignore
+
         reactant.Value <- 4
-        !called =? false
+        mockFunc.ExpectCalls 0
+
         reactant.Value <- 5
-        !called =? true
+        mockFunc.ExpectFinished ()
+
         reactant.Value <- 8
 
     [<Test>]
     let ``only trigger when value changes`` () =
         let reactant = Reactant 5
-        let called = ref false
-        (reactant.Listen <| fun (prev, curr) ->
-            !called =? false
-            prev =? 5
-            curr =? 4
-            called := true
-        ) |> ignore
+        let mockFunc = MockFunction [| (5, 4) |]
+        reactant.Listen mockFunc.Call |> ignore
+
         reactant.Value <- 4
+        mockFunc.ExpectFinished ()
+
         reactant.Value <- 4
-
-    [<Test>]
-    let ``composition polling`` () =
-        let a = Reactant true
-        let b = Reactant true
-        let ab = a &&& b
-        ab.Value =? true
-
-        a.Value <- false
-        ab.Value =? false
-
-        b.Value <- false
-        a.Value <- true
-        ab.Value =? false
-
-        b.Value <- true
-        ab.Value =? true
         
     [<Test>]
     let ``composition events`` () =
         let a = Reactant true
         let b = Reactant true
         let ab = a &&& b
-        let calls = ref 0
-        ab.Listen (fun (prev, curr) -> incr calls) |> ignore
+
+        let mockFunc = MockFunction [| (true, false); (false, true) |]
+        ab.Listen mockFunc.Call |> ignore
 
         a.Value <- false
-        !calls =? 1
+        mockFunc.ExpectCalls 1
 
         b.Value <- false
-        !calls =? 1
+        mockFunc.ExpectCalls 1
 
         a.Value <- true
-        !calls =? 1
+        mockFunc.ExpectCalls 1
 
         b.Value <- true
-        !calls =? 2
+        mockFunc.ExpectFinished ()
 
     [<Test>]
     let ``compose dispatcher with reactant`` () =
         let dispatcher = EventDispatcher ()
         let reactant = Reactant false
         let composition = dispatcher.When reactant
-        let calls = ref 0
-        composition.Listen (fun () -> incr calls) |> ignore
+        let mockFunc = MockFunction [| () |]
+        composition.Listen mockFunc.Call |> ignore
 
         dispatcher.Trigger ()
-        !calls =? 0
+        mockFunc.ExpectCalls 0
 
         reactant.Value <- true
-        !calls =? 0
+        mockFunc.ExpectCalls 0
 
         dispatcher.Trigger ()
-        !calls =? 1
+        mockFunc.ExpectFinished ()
 
         reactant.Value <- false
-        !calls =? 1
+        mockFunc.ExpectFinished ()
 
         dispatcher.Trigger ()
-        !calls =? 1
+        mockFunc.ExpectFinished ()
 
     [<Test>]
     let ``transformation`` () =
         let source = Reactant 4
         let result = source.Transform <| fun a -> a > 4
         result.Value =? false
-        let calls = ref 0
-
-        (result.Listen <| fun (prev, curr) ->
-            match !calls with
-            | 0 ->
-                prev =? false
-                curr =? true
-            | 1 ->
-                prev =? true
-                curr =? false
-            | _ ->
-                Assert.Fail ()
-            incr calls
-        ) |> ignore
+        let mockFunc = MockFunction [| (false, true); (true, false) |]
+        result.Listen mockFunc.Call |> ignore
 
         source.Value <- 5
-        !calls =? 1
+        mockFunc.ExpectCalls 1
         result.Value =? true
 
         source.Value <- 6
-        !calls =? 1
+        mockFunc.ExpectCalls 1
         result.Value =? true
 
         source.Value <- 3
-        !calls =? 2
+        mockFunc.ExpectFinished ()
         result.Value =? false
 
     [<Test>]
     let ``event composition with self`` () =
         let reactant = Reactant 1
         let composition = reactant.When <| reactant.Transform (fun a -> a > 5)
-        let calls = ref 0
-        (composition.Listen <| fun (prev, curr) ->
-            match !calls with
-            | 0 ->
-                prev =? 1
-                curr =? 6
-            | 1 ->
-                prev =? 2
-                curr =? 10
-            | 2 ->
-                prev =? 10
-                curr =? 12
-            | 3 ->
-                prev =? 12
-                curr =? 6
-            | 4 ->
-                prev =? 5
-                curr =? 6
-            | _ ->
-                Assert.Fail ()
-            incr calls
-        ) |> ignore
+        let mockFunc = MockFunction [| (1, 6); (2, 10); (10, 12); (12, 6); (5, 6) |]
+        composition.Listen mockFunc.Call |> ignore
 
         reactant.Value <- 6
-        !calls =? 1
+        mockFunc.ExpectCalls 1
         reactant.Value <- 3
-        !calls =? 1
+        mockFunc.ExpectCalls 1
         reactant.Value <- 2
-        !calls =? 1
+        mockFunc.ExpectCalls 1
         reactant.Value <- 10
-        !calls =? 2
+        mockFunc.ExpectCalls 2
         reactant.Value <- 12
-        !calls =? 3
+        mockFunc.ExpectCalls 3
         reactant.Value <- 6
-        !calls =? 4
+        mockFunc.ExpectCalls 4
         reactant.Value <- 5
-        !calls =? 4
+        mockFunc.ExpectCalls 4
         reactant.Value <- 6
-        !calls =? 5
+        mockFunc.ExpectFinished ()
+
