@@ -97,9 +97,7 @@ module TestReactant =
         let b = Reactant true
         let ab = a &&& b
         let calls = ref 0
-        (ab.Listen <| fun (prev, curr) ->
-            calls := !calls + 1
-        ) |> ignore
+        ab.Listen (fun (prev, curr) -> incr calls) |> ignore
 
         a.Value <- false
         !calls =? 1
@@ -119,9 +117,7 @@ module TestReactant =
         let reactant = Reactant false
         let composition = dispatcher.When reactant
         let calls = ref 0
-        (composition.Listen <| fun () ->
-            calls := !calls + 1
-        ) |> ignore
+        composition.Listen (fun () -> incr calls) |> ignore
 
         dispatcher.Trigger ()
         !calls =? 0
@@ -137,3 +133,79 @@ module TestReactant =
 
         dispatcher.Trigger ()
         !calls =? 1
+
+    [<Test>]
+    let ``transformation`` () =
+        let source = Reactant 4
+        let result = source.Transform <| fun a -> a > 4
+        result.Value =? false
+        let calls = ref 0
+
+        (result.Listen <| fun (prev, curr) ->
+            match !calls with
+            | 0 ->
+                prev =? false
+                curr =? true
+            | 1 ->
+                prev =? true
+                curr =? false
+            | _ ->
+                Assert.Fail ()
+            incr calls
+        ) |> ignore
+
+        source.Value <- 5
+        !calls =? 1
+        result.Value =? true
+
+        source.Value <- 6
+        !calls =? 1
+        result.Value =? true
+
+        source.Value <- 3
+        !calls =? 2
+        result.Value =? false
+
+    [<Test>]
+    let ``event composition with self`` () =
+        let reactant = Reactant 1
+        let composition = reactant.When <| reactant.Transform (fun a -> a > 5)
+        let calls = ref 0
+        (composition.Listen <| fun (prev, curr) ->
+            match !calls with
+            | 0 ->
+                prev =? 1
+                curr =? 6
+            | 1 ->
+                prev =? 2
+                curr =? 10
+            | 2 ->
+                prev =? 10
+                curr =? 12
+            | 3 ->
+                prev =? 12
+                curr =? 6
+            | 4 ->
+                prev =? 5
+                curr =? 6
+            | _ ->
+                Assert.Fail ()
+            incr calls
+        ) |> ignore
+
+        reactant.Value <- 6
+        !calls =? 1
+        reactant.Value <- 3
+        !calls =? 1
+        reactant.Value <- 2
+        !calls =? 1
+        reactant.Value <- 10
+        !calls =? 2
+        reactant.Value <- 12
+        !calls =? 3
+        reactant.Value <- 6
+        !calls =? 4
+        reactant.Value <- 5
+        !calls =? 4
+        reactant.Value <- 6
+        !calls =? 5

@@ -6,7 +6,7 @@ let left = Reactant 4
 let width = Reactant 3
 let right = left + width
 
-right.Listen <| fun (prev, curr) -> Console.WriteLine("Changed right from " + string prev + " to " + string curr + ".")
+(right.Listen <| fun (prev, curr) -> Console.WriteLine("Changed right from " + string prev + " to " + string curr + ".")) |> ignore
 
 let printStatus () =
     Console.WriteLine ()
@@ -29,9 +29,9 @@ let keyShift = Reactant false
 let alive = Reactant true
 let onAttackWest = keyLeft.On(true).When(keyShift &&& alive)
 
-keyLeft.Listen <| fun(prev, curr) -> Console.WriteLine (if curr then "Pressed left arrow key" else "Released left arrow key")
-keyShift.Listen <| fun(prev, curr) -> Console.WriteLine (if curr then "Pressed shift" else "Released shift")
-onAttackWest.Listen <| fun() -> Console.WriteLine "Attacked west"
+(keyLeft.Listen <| fun(prev, curr) -> Console.WriteLine (if curr then "Pressed left arrow key" else "Released left arrow key")) |> ignore
+(keyShift.Listen <| fun(prev, curr) -> Console.WriteLine (if curr then "Pressed shift" else "Released shift")) |> ignore
+(onAttackWest.Listen <| fun() -> Console.WriteLine "Attacked west") |> ignore
 
 keyLeft.Value <- true
 keyShift.Value <- true
