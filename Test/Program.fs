@@ -3,6 +3,7 @@
 open NUnit.Framework
 open Swensen.Unquote
 open Esquire
+open Microsoft.FSharp.Collections
 
 
 type MockFunction<'a when 'a:equality> (argLists:array<'a>) =
@@ -20,6 +21,49 @@ type MockFunction<'a when 'a:equality> (argLists:array<'a>) =
         args =? argLists.[calls]
         calls <- calls + 1
 
+type MockFunction2<'a, 'b when 'a:equality and 'b:equality> (argLists:array<'a*'b>) =
+    let mutable calls = 0
+
+    member this.ExpectCalls count =
+        count <? argLists.Length
+        calls =? count
+
+    member this.ExpectFinished () =
+        calls =? argLists.Length
+
+    member this.Call argA argB =
+        calls <? argLists.Length
+        (argA, argB) =? argLists.[calls]
+        calls <- calls + 1
+        
+
+module TestState =
+    let add value (st:State<Set<'a>>): State<Set<'a>> =
+        update (st.Value.Add(value)) st
+
+    [<Test>]
+    let ``construct with value`` () =
+        let state = State 1
+        state.Value =? 1
+
+    [<Test>]
+    let ``notify listeners on update`` () =
+        let mockFunc = MockFunction2 [| (1, 2) |]
+        State 1
+        |> listen mockFunc.Call
+        |> update 2
+        |> ignore
+        mockFunc.ExpectFinished ()
+
+    [<Test>]
+    let ``notify listeners of complex state update`` () =
+        let mockFunc = MockFunction2 [| (Set.empty, Set.empty.Add(1)) |]
+        let state = State Set.empty
+        let state = listen mockFunc.Call state
+        let state = add 1 state
+        state.Value =? Set.empty.Add(1)
+        mockFunc.ExpectFinished ()
+
 
 module TestReactant =
     [<Test>]
@@ -35,7 +79,7 @@ module TestReactant =
 
     [<Test>]
     let ``constructed with computed value`` () =
-        let reactant = Reactant<int>(fun () -> 4)
+        let reactant = Reactant<int> (fun () -> 4)
         reactant.Value =? 4
 
     [<Test>]

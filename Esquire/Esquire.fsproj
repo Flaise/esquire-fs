@@ -51,6 +51,7 @@
     <Compile Include="EventDispatcher.fs" />
     <Compile Include="Reactant.fs" />
     <Compile Include="EventDispatcherExt.fs" />
+    <Compile Include="State.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <PropertyGroup>

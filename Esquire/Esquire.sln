@@ -7,6 +7,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Esquire", "Esquire.fsproj",
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Test", "..\Test\Test.fsproj", "{49CD6D24-5187-4DCD-862B-35ABCE79F423}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Experiment", "..\Experiment\Experiment.fsproj", "{427E6CCA-FAF8-410E-8019-24787A8C34E2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{49CD6D24-5187-4DCD-862B-35ABCE79F423}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{49CD6D24-5187-4DCD-862B-35ABCE79F423}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{49CD6D24-5187-4DCD-862B-35ABCE79F423}.Release|Any CPU.Build.0 = Release|Any CPU
+		{427E6CCA-FAF8-410E-8019-24787A8C34E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{427E6CCA-FAF8-410E-8019-24787A8C34E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{427E6CCA-FAF8-410E-8019-24787A8C34E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{427E6CCA-FAF8-410E-8019-24787A8C34E2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
