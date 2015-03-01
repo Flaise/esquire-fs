@@ -29,12 +29,12 @@ module Water =
         
     let private fall (st:State) position =
         let positions = GetPositions(st)
-        let positions = positions.Remove(position).Add({position with Y = position.Y + 1})
+        let positions = positions.Add({position with Y = position.Y + 1})
         SetPositions positions st
 
     let Update (state:State) =
         GetPositions(state)
-        |> Set.fold fall state
+        |> Set.fold (fall) (SetPositions Set.empty state)
 
 
 module Camera =
@@ -44,7 +44,7 @@ module Camera =
 [<JavaScript>]
 module Client =
     
-    // Since IE does not support canvas natively. Initialization of the 
+    // Since IE does not support canvas natively, initialization of the 
     // canvas element is done through the excanvas.js library.
     [<Inline "G_vmlCanvasManager.initElement($elem)">]
     let Initialize (elem: CanvasElement) : unit = ()
@@ -84,7 +84,7 @@ module Client =
 
         let rec frame () =
             render frame
-            drawStuff (canvas.GetContext "2d")
+            drawStuff <| canvas.GetContext "2d"
         render frame
 
         element
