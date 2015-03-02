@@ -34,38 +34,37 @@ module States =
 
 [<JavaScript>]
 module Effects =
+    type TypeID = int
     type Handler<'a> = 'a -> State -> 'a*State
     type Group<'a> = Map<int, Handler<'a>>
-    type MetaGroup = Map<string, obj>
-
-    let inline TypeName<'a> () = "type" //typeof<'a>.FullName // TODO
+    type MetaGroup = Map<int, obj>
 
     let Key = 3
 
     let GetGroups (state:State) : MetaGroup =
         GetMap Key state
 
-    let GetGroup (state:State) : Group<'a> =
-        match GetGroups(state).TryFind <| TypeName<'a>() with
+    let GetGroup typeID (state:State) : Group<'a> =
+        match GetGroups(state).TryFind typeID with
         | None -> Map.empty
         | Some handlers -> handlers :?> Group<'a>
 
     let SetGroups (groups:MetaGroup) (state:State) =
         state.Add(Key, groups)
 
-    let SetGroup (group:Group<'a>) (state:State) =
+    let SetGroup typeID (group:Group<'a>) (state:State) =
         let groups = GetGroups state
-        SetGroups (groups.Add(TypeName<'a>(), group)) state
+        SetGroups (groups.Add(typeID, group)) state
 
-    let Trigger effect state =
+    let Trigger typeID effect state =
         Map.fold
             (fun (effect,state) key handler -> handler effect state)
             (effect, state)
-            (GetGroup state)
+            (GetGroup typeID state)
 
-    let Register handler priority state =
-            let group = GetGroup state
-            let inline update () = SetGroup (group.Add(priority, handler)) state
+    let Register typeID handler priority state =
+            let group = GetGroup typeID state
+            let inline update () = SetGroup typeID (group.Add(priority, handler)) state
 
         #if DEBUG
             match group.TryFind priority with
@@ -75,9 +74,9 @@ module Effects =
             update()
         #endif
 
-    let Unregister<'a> priority state =
-            let group:Group<'a> = GetGroup state
-            let inline update () = SetGroup (group.Remove priority) state
+    let Unregister<'a> typeID priority state =
+            let group:Group<'a> = GetGroup typeID state
+            let inline update () = SetGroup typeID (group.Remove priority) state
 
         #if DEBUG
             match group.TryFind priority with
@@ -88,11 +87,23 @@ module Effects =
         #endif
             
 
-
+[<JavaScript>]
 type GentlePushEffect =
     {Origin: Vector2i
      Destination: Vector2i
      Obstructed: bool}
+with
+    static member TypeID = 1
+    static member Default = {Origin={X=0; Y=0}
+                             Destination={X=0; Y=0}
+                             Obstructed=false}
+
+[<JavaScript>]
+type TickEffect() =
+    class end
+with
+    static member TypeID = 2
+    static member Default = TickEffect ()
 
 
 [<JavaScript>]
@@ -105,28 +116,24 @@ module Floors =
     let Present position state =
         GetPositions(state).Contains position
 
-    let handleGentlePush (effect:GentlePushEffect) (state:State) =
+    let private handleGentlePush (effect:GentlePushEffect) (state:State) =
         if Present effect.Destination state then
             {effect with Obstructed=true}, state
         else
             effect, state
 
     let SetPositions (positions:Set<Vector2i>) (state:State) =
-        let prevPositions = state.TryFind(Key) 
-        let state = state.Add(Key, positions)
-        if positions.IsEmpty then
-            match prevPositions with
-            | None -> state
-            | Some _ ->
-                let state = Effects.Unregister<GentlePushEffect> 0 state
-                state.Remove(Key)
-        else
-            match prevPositions with
-            | Some _ ->
-                state.Add(Key, positions)
-            | None ->
-                let state = Effects.Register handleGentlePush 0 state
-                state.Add(Key, positions)
+        match state.TryFind(Key), positions with
+        | None, positions when positions.IsEmpty ->
+            state
+        | None, positions ->
+            let state = Effects.Register GentlePushEffect.TypeID handleGentlePush 0 state
+            state.Add(Key, positions)
+        | Some _, positions when positions.IsEmpty ->
+            let state = Effects.Unregister GentlePushEffect.TypeID 0 state
+            state.Remove(Key)
+        | Some _, positions ->
+            state.Add(Key, positions)
 
     let Make (position:Vector2i) (state:State) =
         SetPositions (GetPositions(state).Add(position)) state
@@ -139,27 +146,37 @@ module Water =
     let GetPositions (state:State) =
         GetSet Key state
 
-    let SetPositions positions (state:State) =
-        state.Add(Key, positions)
-
-    let Make (position:Vector2i) (state:State) =
-        SetPositions (GetPositions(state).Add(position)) state
+    let rec SetPositions (positions:Set<Vector2i>) (state:State) =
+        match state.TryFind(Key), positions with
+        | None, positions when positions.IsEmpty ->
+            state
+        | None, positions ->
+            let state = Effects.Register TickEffect.TypeID handleTick 0 state
+            state.Add(Key, positions)
+        | Some _, positions when positions.IsEmpty ->
+            let state = Effects.Unregister TickEffect.TypeID 0 state
+            state.Remove(Key)
+        | Some _, positions ->
+            state.Add(Key, positions)
         
-    let private fall (state:State) position =
+    and private fall (state:State) position =
         let dest = {position with Y = position.Y + 1}
         let positions = GetPositions(state)
-        let effect = {Origin = position
-                      Destination = dest
-                      Obstructed = false}
-        let effect, state = Effects.Trigger effect state
+        let effect = {GentlePushEffect.Default with Origin = position
+                                                    Destination = dest}
+        let effect, state = Effects.Trigger GentlePushEffect.TypeID effect state
         if effect.Obstructed then
             state
         else
             SetPositions (positions.Add dest) state
 
-    let Update (state:State) =
-        GetPositions(state)
-        |> Set.fold (fall) (SetPositions Set.empty state)
+    and private handleTick (effect:TickEffect) (state:State) =
+        let state = GetPositions(state)
+                    |> Set.fold (fall) (SetPositions Set.empty state)
+        effect, state
+
+    let Make (position:Vector2i) (state:State) =
+        SetPositions (GetPositions(state).Add(position)) state
 
 
 [<JavaScript>]
@@ -207,8 +224,10 @@ module Client =
         canvas.Width  <- 200
 
         let update () =
-            state := !state
-                     |> Water.Update
+            let effect = TickEffect.Default
+            let effect, newState = Effects.Trigger TickEffect.TypeID effect !state
+            state := newState
+
         JS.SetInterval update 300 |> ignore
 
         let rec frame () =
