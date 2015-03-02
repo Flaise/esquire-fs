@@ -2,40 +2,9 @@
 
 open NUnit.Framework
 open Swensen.Unquote
-open Esquire
 open Microsoft.FSharp.Collections
+open Esquire
 
-
-type MockFunction<'a when 'a:equality> (argLists:array<'a>) =
-    let mutable calls = 0
-
-    member this.ExpectCalls count =
-        count <? argLists.Length
-        calls =? count
-
-    member this.ExpectFinished () =
-        calls =? argLists.Length
-
-    member this.Call args =
-        calls <? argLists.Length
-        args =? argLists.[calls]
-        calls <- calls + 1
-
-type MockFunction2<'a, 'b when 'a:equality and 'b:equality> (argLists:array<'a*'b>) =
-    let mutable calls = 0
-
-    member this.ExpectCalls count =
-        count <? argLists.Length
-        calls =? count
-
-    member this.ExpectFinished () =
-        calls =? argLists.Length
-
-    member this.Call argA argB =
-        calls <? argLists.Length
-        (argA, argB) =? argLists.[calls]
-        calls <- calls + 1
-        
 
 module TestState =
     let add value (st:State<Set<'a>>): State<Set<'a>> =

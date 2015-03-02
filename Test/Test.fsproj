@@ -59,14 +59,21 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="MockFunction.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <None Include="packages.config" />
+    <Compile Include="TestExperiment.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Esquire\Esquire.fsproj">
       <Name>Esquire</Name>
       <Project>{22dd36d8-9727-4e9b-9066-6dba4118e67e}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Experiment\Experiment.fsproj">
+      <Name>Experiment</Name>
+      <Project>{427e6cca-faf8-410e-8019-24787a8c34e2}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
