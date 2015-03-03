@@ -206,7 +206,7 @@ module Floors =
         if Present effect.Destination state then
             let effect = {effect with Obstructed=true}
             let below = {effect.Destination with Y = effect.Destination.Y + 1}
-            if Present below state then
+            if Present below state || Bedrock.Present below state then
                 effect, state
             else
                 let state = SetPositions
