@@ -204,7 +204,7 @@ module Rain =
 
     let private rain (state:State) emitter =
         Water.Make
-            {emitter.Corner with X = emitter.Corner.X + rand.Next() % int emitter.Width}
+            {emitter.Corner with X = emitter.Corner.X + rand.Next(int emitter.Width)}
             state
 
     let private handleTick (effect:TickEffect) (state:State) =
@@ -225,6 +225,39 @@ module Rain =
             state
         else
             SetEmitters ({Corner=corner; Width=width} :: GetEmitters state) state
+         
+            
+[<JavaScript>]
+module Bedrock =
+    let Key = 5
+
+    let GetSurfaces (state:State) =
+        GetMap Key state
+
+    let Present position state =
+        match GetSurfaces(state).TryFind position.X with
+        | None -> false
+        | Some y -> y <= position.Y
+
+    let private handleGentlePush (effect:GentlePushEffect) (state:State) =
+        if Present effect.Destination state then
+            {effect with Obstructed=true}, state
+        else
+            effect, state
+
+    let SetSurfaces (positions:Map<int, int>) (state:State) =
+        SetState
+            Key
+            positions
+            (Effects.Register GentlePushEffect.TypeID handleGentlePush 1)
+            (Effects.Unregister<GentlePushEffect> GentlePushEffect.TypeID 1)
+            state
+
+    let Make (position:Vector2i) (state:State) =
+        SetSurfaces (GetSurfaces(state).Add(position.X, position.Y)) state
+
+    let GetElevation x state =
+        GetSurfaces(state).TryFind x
 
 
 [<JavaScript>]
@@ -237,36 +270,57 @@ module Client =
     [<Inline "requestAnimationFrame($0)">]
     let render (frame: unit->unit) = ()
 
+    [<Inline "Math.trunc($0)">] // hack for Websharper's missing support for uint16 cast
+    let toUint16 a = uint16 a
+
+    let tileSize = 5
+    let tileSizeF = float tileSize
+    let cameraW = 80
+    let cameraH = 40
+
     let draw (context: CanvasRenderingContext2D) (state:State) =
         let canvas = As<CanvasElement> context.Canvas
         context.ClearRect(0., 0., float canvas.Width, float canvas.Height)
         context.StrokeRect(0., 0., float canvas.Width, float canvas.Height)
-        
-        let size = 5.
 
         context.FillStyle <- "blue"
         for position in Water.GetPositions(state) do
-            context.FillRect(size * float position.X, size * float position.Y, size, size)
+            context.FillRect(float <| tileSize * position.X,
+                             float <| tileSize * position.Y,
+                             tileSizeF, tileSizeF)
 
         context.FillStyle <- "brown"
         for position in Floors.GetPositions(state) do
-            context.FillRect(size * float position.X, size * float position.Y, size, size)
+            context.FillRect(float <| tileSize * position.X,
+                             float <| tileSize * position.Y,
+                             tileSizeF, tileSizeF)
+
+        context.FillStyle <- "lightgray"
+        for x in 0 .. cameraW do
+            match Bedrock.GetElevation x state with
+            | None -> ()
+            | Some y -> context.FillRect(float <| tileSize * x, float <| tileSize * y,
+                                         tileSizeF, float <| canvas.Height - y)
         
     let Main () =
         let state = EmptyState
                     |> Floors.Make {X=1; Y=15}
                     |> Floors.Make {X=2; Y=16}
                     |> Floors.Make {X=3; Y=16}
-                    |> Rain.Make {X=0; Y=0} 20us
+                    |> Rain.Make {X=0; Y=0} (toUint16 cameraW)
                     |> ref
+                    
+        let rand = Random()
+        for x in 0 .. cameraW do
+            state := Bedrock.Make {X=x; Y=rand.Next(cameraH * 3 / 4, cameraH)} !state
             
         let element = Canvas [Attr.Style "margin: 0 auto;"]
         let canvas  = As<CanvasElement> element.Dom
         // Conditional initialization for the case of IE.
         if (canvas |> JS.Get "getContext" = JS.Undefined) then
             Initialize canvas
-        canvas.Height <- 200
-        canvas.Width  <- 200
+        canvas.Height <- cameraH * tileSize
+        canvas.Width <- cameraW * tileSize
         
         let frame () =
             draw (canvas.GetContext "2d") !state
