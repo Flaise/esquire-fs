@@ -6,7 +6,7 @@ open Microsoft.FSharp.Collections
 open Experiment
 
 
-module TestEffects =
+module Experiment =
     let state = EmptyState
 
     [<Test>]
@@ -25,7 +25,7 @@ module TestEffects =
         handler.ExpectFinished()
 
     [<Test>]
-    let ``call 2 handlers in descending order`` () =
+    let ``call 2 handlers in ascending order`` () =
         let totalCalls = ref 0
         let handler1 =
             MockFunctionExec2<int, State, int*State> [|
@@ -95,3 +95,23 @@ module TestEffects =
         handlerA.ExpectFinished()
         handlerB.ExpectFinished()
 
+    [<Test>]
+    let ``triggering event with no listeners does nothing`` () =
+        let effect, newState = Effects.Trigger 1 1 state
+        newState =? state
+
+    [<Test>]
+    let ``tick event`` () =
+        let state = EmptyState
+                    |> Water.Make {X=1; Y=1}
+                    |> Water.Make {X=3; Y=2}
+                    |> Water.Make {X=3; Y=1}
+                    |> Water.Make {X=3; Y=3}
+                    |> Floors.Make {X=1; Y=15}
+                    |> Floors.Make {X=2; Y=16}
+                    |> Floors.Make {X=3; Y=16}
+                    |> Rain.Make {X=1; Y=1} 5us
+
+        let effect = TickEffect.Default
+        let effect, newState = Effects.Trigger TickEffect.TypeID effect state
+        ()

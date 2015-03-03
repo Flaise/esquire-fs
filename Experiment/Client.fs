@@ -6,30 +6,32 @@ open WebSharper.JavaScript
 open WebSharper.Html.Client
 
 
-type Vector2i = {X:int; Y:int}
-
-
 type State = Map<int, obj>
 
 
 [<AutoOpen; JavaScript>]
 module States =
-    let Get<'a> key getDefault (state:State) =
+    let EmptyState = Map.empty
+
+    let Get key getDefault (state:State) : 'a =
         match state.TryFind key with
         | None -> getDefault ()
         | Some result -> result :?> 'a
 
     let private getEmptySet () = Set.empty
-
-    let GetSet<'a> key (state:State) =
+    let GetSet key (state:State) : Set<'a> =
         Get key getEmptySet state
 
     let private getEmptyMap () = Map.empty
-
-    let GetMap<'a> key (state:State) =
+    let GetMap key (state:State) : Map<'a, 'b> =
         Get key getEmptyMap state
 
-    let EmptyState = Map.empty
+    let private getEmptyList () = []
+    let GetList key (state:State) : list<'a> =
+        Get key getEmptyList state
+
+
+type Vector2i = {X:int; Y:int}
     
 
 [<JavaScript>]
@@ -85,7 +87,23 @@ module Effects =
         #else
             update()
         #endif
-            
+
+
+[<JavaScript; AutoOpen>]
+module EffectStates =
+    let SetState key data register unregister (state:State) =
+        match state.TryFind(key), data with
+        | None, data when Seq.isEmpty data ->
+            state
+        | None, data ->
+            let state:State = register state
+            state.Add(key, data)
+        | Some _, data when Seq.isEmpty data ->
+            let state:State = unregister state
+            state.Remove(key)
+        | Some _, data ->
+            state.Add(key, data)
+
 
 [<JavaScript>]
 type GentlePushEffect =
@@ -123,17 +141,12 @@ module Floors =
             effect, state
 
     let SetPositions (positions:Set<Vector2i>) (state:State) =
-        match state.TryFind(Key), positions with
-        | None, positions when positions.IsEmpty ->
+        SetState
+            Key
+            positions
+            (Effects.Register GentlePushEffect.TypeID handleGentlePush 0)
+            (Effects.Unregister<GentlePushEffect> GentlePushEffect.TypeID 0)
             state
-        | None, positions ->
-            let state = Effects.Register GentlePushEffect.TypeID handleGentlePush 0 state
-            state.Add(Key, positions)
-        | Some _, positions when positions.IsEmpty ->
-            let state = Effects.Unregister GentlePushEffect.TypeID 0 state
-            state.Remove(Key)
-        | Some _, positions ->
-            state.Add(Key, positions)
 
     let Make (position:Vector2i) (state:State) =
         SetPositions (GetPositions(state).Add(position)) state
@@ -147,17 +160,12 @@ module Water =
         GetSet Key state
 
     let rec SetPositions (positions:Set<Vector2i>) (state:State) =
-        match state.TryFind(Key), positions with
-        | None, positions when positions.IsEmpty ->
+        SetState
+            Key
+            positions
+            (Effects.Register TickEffect.TypeID handleTick 0)
+            (Effects.Unregister<TickEffect> TickEffect.TypeID 0)
             state
-        | None, positions ->
-            let state = Effects.Register TickEffect.TypeID handleTick 0 state
-            state.Add(Key, positions)
-        | Some _, positions when positions.IsEmpty ->
-            let state = Effects.Unregister TickEffect.TypeID 0 state
-            state.Remove(Key)
-        | Some _, positions ->
-            state.Add(Key, positions)
         
     and private fall (state:State) position =
         let dest = {position with Y = position.Y + 1}
@@ -179,15 +187,55 @@ module Water =
         SetPositions (GetPositions(state).Add(position)) state
 
 
+type RainEmitter = {
+    Corner: Vector2i
+    Width: uint16
+}
+
+
+[<JavaScript>]
+module Rain =
+    let Key = 4
+
+    let GetEmitters (state:State): list<RainEmitter> =
+        GetList Key state
+
+    let rand = Random()
+
+    let private rain (state:State) emitter =
+        Water.Make
+            {emitter.Corner with X = emitter.Corner.X + rand.Next() % int emitter.Width}
+            state
+
+    let private handleTick (effect:TickEffect) (state:State) =
+        let state = GetEmitters(state)
+                    |> List.fold (rain) state
+        effect, state
+
+    let SetEmitters (emitters:list<RainEmitter>) (state:State) =
+        SetState
+            Key
+            emitters
+            (Effects.Register TickEffect.TypeID handleTick 1)
+            (Effects.Unregister<TickEffect> TickEffect.TypeID 1)
+            state
+
+    let Make (corner:Vector2i) width (state:State) =
+        if width = 0us then
+            state
+        else
+            SetEmitters ({Corner=corner; Width=width} :: GetEmitters state) state
+
+
 [<JavaScript>]
 module Client =
     // Since IE does not support canvas natively, initialization of the 
     // canvas element is done through the excanvas.js library.
     [<Inline "G_vmlCanvasManager.initElement($elem)">]
-    let Initialize (elem: CanvasElement) : unit = ()
+    let Initialize (elem: CanvasElement) = ()
 
     [<Inline "requestAnimationFrame($0)">]
-    let render (frame: unit->unit) = X<unit>
+    let render (frame: unit->unit) = ()
 
     let draw (context: CanvasRenderingContext2D) (state:State) =
         let canvas = As<CanvasElement> context.Canvas
@@ -206,13 +254,10 @@ module Client =
         
     let Main () =
         let state = EmptyState
-                    |> Water.Make {X=1; Y=1}
-                    |> Water.Make {X=3; Y=2}
-                    |> Water.Make {X=3; Y=1}
-                    |> Water.Make {X=3; Y=3}
                     |> Floors.Make {X=1; Y=15}
                     |> Floors.Make {X=2; Y=16}
                     |> Floors.Make {X=3; Y=16}
+                    |> Rain.Make {X=0; Y=0} 20us
                     |> ref
             
         let element = Canvas [Attr.Style "margin: 0 auto;"]
@@ -222,18 +267,20 @@ module Client =
             Initialize canvas
         canvas.Height <- 200
         canvas.Width  <- 200
+        
+        let frame () =
+            draw (canvas.GetContext "2d") !state
 
-        let update () =
+        let rec update () =
+            JS.SetTimeout update 300 |> ignore
+
             let effect = TickEffect.Default
             let effect, newState = Effects.Trigger TickEffect.TypeID effect !state
             state := newState
 
-        JS.SetInterval update 300 |> ignore
-
-        let rec frame () =
             render frame
-            draw (canvas.GetContext "2d") !state
-        render frame
+
+        update()
 
         element
 
