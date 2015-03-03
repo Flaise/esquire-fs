@@ -110,7 +110,9 @@ module Experiment =
                     |> Floors.Make {X=1; Y=15}
                     |> Floors.Make {X=2; Y=16}
                     |> Floors.Make {X=3; Y=16}
-                    |> Rain.Make {X=1; Y=1} 5us
+                    |> Rain.Make {Corner={X=0; Y=0}
+                                  Width=5us
+                                  Constructor=Water.Make}
 
         let effect = TickEffect.Default
         let effect, newState = Effects.Trigger TickEffect.TypeID effect state

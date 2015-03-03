@@ -115,13 +115,47 @@ with
     static member Default = {Origin={X=0; Y=0}
                              Destination={X=0; Y=0}
                              Obstructed=false}
+         
+            
+[<JavaScript>]
+module Bedrock =
+    let Key = 5
+
+    let GetSurfaces (state:State) =
+        GetMap Key state
+
+    let Present position state =
+        match GetSurfaces(state).TryFind position.X with
+        | None -> false
+        | Some y -> y <= position.Y
+
+    let private handleGentlePush (effect:GentlePushEffect) (state:State) =
+        if Present effect.Destination state then
+            {effect with Obstructed=true}, state
+        else
+            effect, state
+
+    let SetSurfaces (positions:Map<int, int>) (state:State) =
+        SetState
+            Key
+            positions
+            (Effects.Register GentlePushEffect.TypeID handleGentlePush 1)
+            (Effects.Unregister<GentlePushEffect> GentlePushEffect.TypeID 1)
+            state
+
+    let Make (position:Vector2i) (state:State) =
+        SetSurfaces (GetSurfaces(state).Add(position.X, position.Y)) state
+
+    let GetElevation x state =
+        GetSurfaces(state).TryFind x
+
 
 [<JavaScript>]
 type TickEffect() =
     class end
 with
     static member TypeID = 2
-    static member Default = TickEffect ()
+    static member Default = TickEffect()
 
 
 [<JavaScript>]
@@ -140,13 +174,39 @@ module Floors =
         else
             effect, state
 
-    let SetPositions (positions:Set<Vector2i>) (state:State) =
+    let rec SetPositions (positions:Set<Vector2i>) (state:State) =
         SetState
             Key
             positions
-            (Effects.Register GentlePushEffect.TypeID handleGentlePush 0)
-            (Effects.Unregister<GentlePushEffect> GentlePushEffect.TypeID 0)
+            (fun state ->
+                state
+                |> Effects.Register TickEffect.TypeID handleTick -1
+                |> Effects.Register GentlePushEffect.TypeID handleGentlePush 0
+            )
+            (fun state ->
+                state
+                |> Effects.Unregister<TickEffect> TickEffect.TypeID -1
+                |> Effects.Unregister<GentlePushEffect> GentlePushEffect.TypeID 0
+            )
             state
+        
+    and private fall position (prevState:State) (state:State) =
+        let left = {position with X = position.X - 1}
+        let right = {position with X = position.X + 1}
+        let destination = {position with Y = position.Y + 1}
+        let positions = GetPositions prevState
+        let newPositions = GetPositions state
+        if positions.Contains(left) || positions.Contains(right) || positions.Contains(destination)
+                || Bedrock.Present destination prevState then
+            SetPositions (newPositions.Add position) state
+        else
+            SetPositions (newPositions.Add destination) state
+
+    and private handleTick (effect:TickEffect) (state:State) =
+        let mutable newState = SetPositions Set.empty state
+        for position in GetPositions state do
+            newState <- fall position state newState
+        effect, newState
 
     let Make (position:Vector2i) (state:State) =
         SetPositions (GetPositions(state).Add(position)) state
@@ -190,6 +250,7 @@ module Water =
 type RainEmitter = {
     Corner: Vector2i
     Width: uint16
+    Constructor: Vector2i->State->State
 }
 
 
@@ -197,13 +258,13 @@ type RainEmitter = {
 module Rain =
     let Key = 4
 
-    let GetEmitters (state:State): list<RainEmitter> =
+    let GetEmitters (state:State) : list<RainEmitter> =
         GetList Key state
 
     let rand = Random()
 
     let private rain (state:State) emitter =
-        Water.Make
+        emitter.Constructor
             {emitter.Corner with X = emitter.Corner.X + rand.Next(int emitter.Width)}
             state
 
@@ -220,44 +281,11 @@ module Rain =
             (Effects.Unregister<TickEffect> TickEffect.TypeID 1)
             state
 
-    let Make (corner:Vector2i) width (state:State) =
-        if width = 0us then
+    let Make emitter (state:State) =
+        if emitter.Width = 0us then
             state
         else
-            SetEmitters ({Corner=corner; Width=width} :: GetEmitters state) state
-         
-            
-[<JavaScript>]
-module Bedrock =
-    let Key = 5
-
-    let GetSurfaces (state:State) =
-        GetMap Key state
-
-    let Present position state =
-        match GetSurfaces(state).TryFind position.X with
-        | None -> false
-        | Some y -> y <= position.Y
-
-    let private handleGentlePush (effect:GentlePushEffect) (state:State) =
-        if Present effect.Destination state then
-            {effect with Obstructed=true}, state
-        else
-            effect, state
-
-    let SetSurfaces (positions:Map<int, int>) (state:State) =
-        SetState
-            Key
-            positions
-            (Effects.Register GentlePushEffect.TypeID handleGentlePush 1)
-            (Effects.Unregister<GentlePushEffect> GentlePushEffect.TypeID 1)
-            state
-
-    let Make (position:Vector2i) (state:State) =
-        SetSurfaces (GetSurfaces(state).Add(position.X, position.Y)) state
-
-    let GetElevation x state =
-        GetSurfaces(state).TryFind x
+            SetEmitters (emitter :: GetEmitters state) state
 
 
 [<JavaScript>]
@@ -304,10 +332,12 @@ module Client =
         
     let Main () =
         let state = EmptyState
-                    |> Floors.Make {X=1; Y=15}
-                    |> Floors.Make {X=2; Y=16}
-                    |> Floors.Make {X=3; Y=16}
-                    |> Rain.Make {X=0; Y=0} (toUint16 cameraW)
+                    |> Rain.Make {Corner={X=0; Y=0}
+                                  Width=(toUint16 cameraW)
+                                  Constructor=Water.Make}
+                    |> Rain.Make {Corner={X=0; Y=0}
+                                  Width=(toUint16 cameraW)
+                                  Constructor=Floors.Make}
                     |> ref
                     
         let rand = Random()
@@ -326,7 +356,7 @@ module Client =
             draw (canvas.GetContext "2d") !state
 
         let rec update () =
-            JS.SetTimeout update 300 |> ignore
+            JS.SetTimeout update 150 |> ignore
 
             let effect = TickEffect.Default
             let effect, newState = Effects.Trigger TickEffect.TypeID effect !state
