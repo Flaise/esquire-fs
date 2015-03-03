@@ -168,12 +168,6 @@ module Floors =
     let Present position state =
         GetPositions(state).Contains position
 
-    let private handleGentlePush (effect:GentlePushEffect) (state:State) =
-        if Present effect.Destination state then
-            {effect with Obstructed=true}, state
-        else
-            effect, state
-
     let rec SetPositions (positions:Set<Vector2i>) (state:State) =
         SetState
             Key
@@ -207,6 +201,20 @@ module Floors =
         for position in GetPositions state do
             newState <- fall position state newState
         effect, newState
+
+    and private handleGentlePush (effect:GentlePushEffect) (state:State) =
+        if Present effect.Destination state then
+            let effect = {effect with Obstructed=true}
+            let below = {effect.Destination with Y = effect.Destination.Y + 1}
+            if Present below state then
+                effect, state
+            else
+                let state = SetPositions
+                                (GetPositions(state).Remove(effect.Destination).Add(below))
+                                state
+                effect, state
+        else
+            effect, state
 
     let Make (position:Vector2i) (state:State) =
         SetPositions (GetPositions(state).Add(position)) state
