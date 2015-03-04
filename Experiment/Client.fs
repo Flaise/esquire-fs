@@ -306,6 +306,13 @@ module Client =
     [<Inline "requestAnimationFrame($0)">]
     let render (frame: unit->unit) = ()
 
+    [<Inline """
+        Math.trunc = Math.trunc || function(x) {
+            return x < 0? Math.ceil(x): Math.floor(x);
+        }
+    """>]
+    let inline truncPolyfill () = ()
+    
     [<Inline "Math.trunc($0)">] // hack for Websharper's missing support for uint16 cast
     let toUint16 a = uint16 a
 
@@ -339,6 +346,8 @@ module Client =
                                          tileSizeF, float <| canvas.Height - y)
         
     let Main () =
+        truncPolyfill()
+
         let state = EmptyState
                     |> Rain.Make {Corner={X=0; Y=0}
                                   Width=(toUint16 cameraW)
