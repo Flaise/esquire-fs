@@ -4,61 +4,22 @@ open WebSharper.Html.Server
 open WebSharper
 open WebSharper.Sitelets
 
-type Action =
-    | Home
-    | About
-
-module Controls =
-
-    [<Sealed>]
-    type EntryPoint() =
-        inherit Web.Control()
-
-        [<JavaScript>]
-        override __.Body =
-            Client.Main () :> _
-
-module Skin =
-    open System.Web
-
-    type Page =
-        {
-            Title : string
-            Body : list<Element>
-        }
-
-    let MainTemplate =
-        Content.Template<Page>("~/Main.html")
-            .With("title", fun x -> x.Title)
-            .With("body", fun x -> x.Body)
-
-    let WithTemplate title body : Content<Action> =
-        Content.WithTemplate MainTemplate <| fun context ->
-            {
-                Title = title
-                Body = body context
-            }
-
-
 
 module Site =
+    type Action = | Index
 
-    let HomePage =
-        Skin.WithTemplate "" <| fun ctx ->
-            [
-                Div [new Controls.EntryPoint()]
-            ]
+    let IndexContent : Content<Action> =
+        PageContent <| fun context ->
+            {Page.Default with
+                Title = Some "Particle Sim"
+                Body = [Div [Style "text-align: center;"]
+                            -< [new ParticleControl()]]}
+        
+    type Site() =
+        interface IWebsite<Action> with
+            member this.Sitelet = Sitelet.Content "/" Index IndexContent
+            member this.Actions = [Index]
 
-    let Main =
-        Sitelet.Sum [
-            Sitelet.Content "/" Home HomePage
-        ]
-
-[<Sealed>]
-type Website() =
-    interface IWebsite<Action> with
-        member this.Sitelet = Site.Main
-        member this.Actions = [Home]
-
-[<assembly: Website(typeof<Website>)>]
+[<assembly: Website(typeof<Site.Site>)>]
 do ()
+

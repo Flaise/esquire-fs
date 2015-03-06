@@ -37,7 +37,6 @@
     <Compile Include="Client.fs" />
     <Compile Include="Main.fs" />
     <None Include="extra.files" />
-    <Content Include="Main.html" />
     <None Include="packages.config" />
     <None Include="app.config" />
   </ItemGroup>

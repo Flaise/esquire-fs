@@ -349,19 +349,19 @@ module Client =
         truncPolyfill()
 
         let state = EmptyState
-                    |> Rain.Make {Corner={X=0; Y=0}
+                    |> Rain.Make {Corner={X = 0; Y = 0}
                                   Width=(toUint16 cameraW)
                                   Constructor=Water.Make}
-                    |> Rain.Make {Corner={X=0; Y=0}
+                    |> Rain.Make {Corner={X = 0; Y = -1}
                                   Width=(toUint16 cameraW)
                                   Constructor=Floors.Make}
                     |> ref
                     
         let rand = Random()
         for x in 0 .. cameraW do
-            state := Bedrock.Make {X=x; Y=rand.Next(cameraH * 3 / 4, cameraH)} !state
+            state := Bedrock.Make {X = x; Y = rand.Next(cameraH * 3 / 4, cameraH)} !state
             
-        let element = Canvas [Attr.Style "margin: 0 auto;"]
+        let element = Canvas [Attr.Style "display: inline;"]
         let canvas  = As<CanvasElement> element.Dom
         // Conditional initialization for the case of IE.
         if (canvas |> JS.Get "getContext" = JS.Undefined) then
@@ -373,7 +373,7 @@ module Client =
             draw (canvas.GetContext "2d") !state
 
         let rec update () =
-            JS.SetTimeout update 150 |> ignore
+            JS.SetTimeout update 100 |> ignore
 
             let effect = TickEffect.Default
             let effect, newState = Effects.Trigger TickEffect.TypeID effect !state
@@ -386,8 +386,11 @@ module Client =
         element
 
 
-type CanvasViewer() =
-    inherit Web.Control()
-    [<JavaScript>]
-    override this.Body = Client.Main () :> _
+[<AutoOpen>]
+module Controls =
+    type ParticleControl() =
+        inherit Web.Control()
+
+        [<JavaScript>]
+        override this.Body = Client.Main() :> _
 
